@@ -723,6 +723,17 @@ void SceneTreeEditor::set_selected(Node *p_node, bool p_emit_selected) {
 	}
 }
 
+void add_child_update(Node *node, Vector<Node *> &vec) {
+	auto *root = EditorNode::get_singleton()->get_edited_scene();
+	if ((node != root) && root->is_editable_instance(node)) {
+		EditorNode::get_singleton()->get_edited_scene()->set_editable_instance(node, false);
+		vec.push_back(node);
+	}
+	for (int i = 0; i < node->get_child_count(); ++i) {
+		add_child_update(node->get_child(i), vec);
+	}
+}
+
 void SceneTreeEditor::_rename_node(ObjectID p_node, const String &p_name) {
 	Object *o = ObjectDB::get_instance(p_node);
 	ERR_FAIL_COND(!o);
@@ -731,9 +742,16 @@ void SceneTreeEditor::_rename_node(ObjectID p_node, const String &p_name) {
 	TreeItem *item = _find(tree->get_root(), n->get_path());
 	ERR_FAIL_COND(!item);
 
+	Vector<Node *> update;
+	add_child_update(n, update);
+
 	n->set_name(p_name);
 	item->set_metadata(0, n->get_path());
 	item->set_text(0, p_name);
+
+	for (int i = 0; i < update.size(); ++i) {
+		EditorNode::get_singleton()->get_edited_scene()->set_editable_instance(update.get(i), true);
+	}
 }
 
 void SceneTreeEditor::_renamed() {
